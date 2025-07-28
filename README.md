@@ -4,8 +4,8 @@
 🌐 纯前端 | 零依赖 | 隐私安全 | 支持二维码导出
 
 ![在线演示](https://img.shields.io/badge/在线演示-%F0%9F%9A%80%20立即体验-brightgreen?style=for-the-badge&logo=github)
-[![GitHub Stars](https://img.shields.io/github/stars/你的用户名/clash-converter?style=for-the-badge&logo=github)](https://github.com/你的用户名/clash-converter/stargazers)
-[![License](https://img.shields.io/github/license/你的用户名/clash-converter?style=for-the-badge)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/mmacheng/clash-converter?style=for-the-badge&logo=github)](https://github.com/mmacheng/clash-converter/stargazers)
+[![License](https://img.shields.io/github/license/mmacheng/clash-converter?style=for-the-badge)](LICENSE)
 
 ---
 
