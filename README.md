@@ -12,7 +12,7 @@
 ## 🌐 在线体验
 
 👉 **立即访问：**  
-https://你的用户名.github.io/clash-converter/
+https://mmacheng.github.io/clash-converter/
 
 > 💡 无需安装，打开即用，支持手机浏览器！
 
