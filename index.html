@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Clash 节点转换器</title>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode.js/lib/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f8f9fa;
+      color: #212529;
+      transition: all 0.3s;
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not(.light-mode) {
+        background: #121212;
+        color: #e0e0e0;
+      }
+    }
+    .dark-mode {
+      background: #121212;
+      color: #e0e0e0;
+    }
+    .dark-mode .container, .dark-mode textarea, .dark-mode #result {
+      background: #1f1f1f;
+      color: #e0e0e0;
+      border-color: #444;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: all 0.3s;
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .dark-mode h1 {
+      color: #bbdefb;
+    }
+    .toggle-btn {
+      display: block;
+      margin: 10px auto;
+      padding: 6px 12px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 14px;
+      border: 1px solid #ced4da;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      resize: vertical;
+      background: white;
+      color: #333;
+      transition: border 0.3s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+    }
+    button {
+      margin-top: 12px;
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    #result {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .dark-mode #result {
+      background: #1e1e1e;
+      border-color: #444;
+    }
+    .error { color: #e74c3c; }
+    .success { color: #27ae60; }
+    .info { color: #777; font-style: italic; }
+    a.download-link {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #2ecc71;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    a.download-link:hover {
+      background: #27ae60;
+    }
+    #qrcode {
+      margin-top: 16px;
+      text-align: center;
+    }
+    #qrcode img {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 4px;
+      background: white;
+    }
+    .drop-zone {
+      border: 2px dashed #3498db;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin: 10px 0;
+      background: #e3f2fd;
+      color: #1565c0;
+      cursor: pointer;
+    }
+    .drop-zone.highlight {
+      background: #bbdefb;
+      border-color: #1565c0;
+    }
+    .dark-mode .drop-zone {
+      background: #1a237e;
+      color: #bbdefb;
+      border-color: #5c6bc0;
+    }
+    .dark-mode .drop-zone.highlight {
+      background: #0d1b4a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🌐 Clash 节点转换器</h1>
+    <button class="toggle-btn" onclick="toggleDarkMode()">🌓 切换暗黑模式</button>
+
+    <p class="info">支持：vmess, ss, trojan, socks5, vless, hysteria, tuic（多行输入）</p>
+
+    <div class="drop-zone" id="dropZone">
+      📁 拖拽节点文件（.txt）到这里，或点击选择
+      <input type="file" id="fileInput" style="display: none" accept=".txt,.text">
+    </div>
+
+    <textarea id="inputNodes" placeholder="请粘贴你的节点链接，每行一个：
+vmess://xxxx
+ss://yyyy
+vless://zzzz
+..."></textarea>
+
+    <button onclick="convert()">🚀 生成 Clash 配置文件</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // 检查系统偏好
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.body.classList.add('dark-mode');
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    function base64Decode(str) {
+      try {
+        return decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      } catch (e) {
+        console.error("Base64 解码失败:", e);
+        return null;
+      }
+    }
+
+    function parseVmess(url) {
+      const match = url.match(/^vmess:\/\/(.+)$/);
+      if (!match) return null;
+      const data = match[1];
+      let config;
+      try {
+        const padding = '='.repeat((4 - data.length % 4) % 4);
+        const decoded = base64Decode(data + padding);
+        if (!decoded) return null;
+        config = JSON.parse(decoded);
+      } catch (e) {
+        return null;
+      }
+      return {
+        name: config.ps || `vmess-${config.add}-${config.port}`,
+        type: 'vmess',
+        server: config.add,
+        port: parseInt(config.port),
+        uuid: config.id,
+        alterId: parseInt(config.aid || 0),
+        cipher: 'auto',
+        udp: true,
+        tls: config.tls === 'tls',
+        servername: config.sni || config.host || '',
+        'skip-cert-verify': !!config.skipCertVerify,
+        network: config.net || 'tcp',
+        'ws-path': config.net === 'ws' ? (config.path || '/') : undefined,
+        'ws-headers': config.net === 'ws' && config.host ? { Host: config.host } : undefined
+      };
+    }
+
+    function parseSs(url) {
+      const match = url.match(/^ss:\/\/([^#]+)(?:#(.+))?$/);
+      if (!match) return null;
+      const content = match[1];
+      const namePart = match[2] ? decodeURIComponent(match[2]) : null;
+      let method, password, address, port;
+      if (content.includes('@')) {
+        const [auth, addr] = content.split('@');
+        const [m, p] = auth.split(':');
+        const [a, po] = addr.split(':');
+        method = decodeURIComponent(m);
+        password = decodeURIComponent(p);
+        address = a;
+        port = parseInt(po);
+      } else {
+        const decoded = base64Decode(content);
+        if (!decoded) return null;
+        const m = decoded.match(/^([^:]+):(.+)@([^:]+):(\d+)$/);
+        if (!m) return null;
+        method = m[1];
+        password = m[2];
+        address = m[3];
+        port = parseInt(m[4]);
+      }
+      return {
+        name: namePart || `ss-${address}-${port}`,
+        type: 'ss',
+        server: address,
+        port,
+        cipher: method,
+        password,
+        udp: true
+      };
+    }
+
+    function parseTrojan(url) {
+      try {
+        const parsed = new URL(url);
+        const password = parsed.username;
+        const host = parsed.hostname;
+        const port = parsed.port ? parseInt(parsed.port) : 443;
+        const params = new URLSearchParams(parsed.search);
+        const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : `trojan-${host}-${port}`;
+        return {
+          name,
+          type: 'trojan',
+          server: host,
+          port,
+          password,
+          udp: true,
+          tls: true,
+          sni: params.get('sni') || host,
+          'skip-cert-verify': params.get('skipCertVerify') === 'true',
+          alpn: params.get('alpn') ? params.get('alpn').split(',') : undefined
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function parseSocks5(url) {
+      const match = url.match(/^socks5:\/\/([^:]+):(\d+):([^:]+):(.+)$/);
+      if (!match) return null;
+      const [_, ip, port, user, pass] = match;
+      return {
+        name: `socks5-${ip}-${port}`,
+        type: 'socks5',
+        server: ip,
+        port: parseInt(port),
+        username: user,
+        password: pass,
+        udp: true
+      };
+    }
+
+    function parseVless(url) {
+      try {
+        const parsed = new URL(url);
+        const uuid = parsed.username;
+        const host = parsed.hostname;
+        const port = parsed.port ? parseInt(parsed.port) : 443;
+        const params = new URLSearchParams(parsed.search);
+        const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : `vless-${host}-${port}`;
+        return {
+          name,
+          type: 'vless',
+          server: host,
+          port,
+          uuid,
+          network: params.get('type') || 'tcp',
+          tls: params.get('security') === 'tls' || params.get('security') === 'reality',
+          servername: params.get('sni') || '',
+          security: params.get('security') || 'none',
+          reality: params.get('security') === 'reality',
+          'reality-public-key': params.get('pbk') || '',
+          'reality-short-id': params.get('sid') || '',
+          'flow': params.get('flow') || '',
+          'ws-path': params.get('path') || '/',
+          'ws-headers': params.get('host') ? { Host: params.get('host') } : undefined,
+          udp: true
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function parseHysteria(url) {
+      try {
+        const parsed = new URL(url);
+        const auth = parsed.username ? decodeURIComponent(parsed.username) : '';
+        const host = parsed.hostname;
+        const port = parsed.port ? parseInt(parsed.port) : 443;
+        const params = new URLSearchParams(parsed.search);
+        const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : `hysteria-${host}-${port}`;
+        return {
+          name,
+          type: 'hysteria',
+          server: host,
+          port,
+          auth: auth,
+          auth_str: auth,
+          alpn: params.get('alpn')?.split(',') || ['h3'],
+          protocol: params.get('protocol') || 'udp',
+          'up': params.get('up') || '100M',
+          'down': params.get('down') || '100M',
+          obfs: params.get('obfs') || '',
+          'skip-cert-verify': params.get('insecure') === '1',
+          sni: params.get('sni') || host,
+          udp: true
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function parseTuic(url) {
+      try {
+        const match = url.match(/^tuic:\/\/([^:]+):([^@]+)@([^:]+):(\d+)(?:\?(.*))?#?(.*)$/);
+        if (!match) return null;
+        const [, uuid, pass, host, portStr, search = '', hash = ''] = match;
+        const port = parseInt(portStr);
+        const params = new URLSearchParams(search);
+        const name = hash ? decodeURIComponent(hash) : `tuic-${host}-${port}`;
+        return {
+          name,
+          type: 'tuic',
+          server: host,
+          port,
+          uuid,
+          password: pass,
+          'ip': params.get('ip'),
+          'sni': params.get('sni') || host,
+          'congestion-controller': params.get('congestion_control') || 'bbr',
+          'udp-relay-mode': params.get('udp_relay_mode') || 'native',
+          'alpn': params.get('alpn')?.split(',') || ['h3'],
+          'skip-cert-verify': params.get('allow_insecure') === '1',
+          'disable-sni': params.get('disable_sni') === '1',
+          udp: true
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function parseProxyLine(line) {
+      line = line.trim();
+      if (!line) return null;
+      if (line.startsWith('vmess://')) return parseVmess(line);
+      if (line.startsWith('ss://')) return parseSs(line);
+      if (line.startsWith('trojan://')) return parseTrojan(line);
+      if (line.startsWith('socks5://')) return parseSocks5(line);
+      if (line.startsWith('vless://')) return parseVless(line);
+      if (line.startsWith('hysteria://')) return parseHysteria(line);
+      if (line.startsWith('tuic://')) return parseTuic(line);
+      return { error: true, text: line };
+    }
+
+    function generateClashConfig(proxies) {
+      const config = {
+        'mixed-port': 7890,
+        'allow-lan': false,
+        mode: 'Rule',
+        'log-level': 'info',
+        proxies,
+        'proxy-groups': [
+          { name: 'PROXY', type: 'select', proxies: proxies.map(p => p.name) },
+          { name: 'Auto', type: 'url-test', url: 'http://www.gstatic.com/generate_204', interval: 300, tolerance: 50, proxies: proxies.map(p => p.name) }
+        ],
+        rules: [
+          'GEOIP,CN,DIRECT',
+          'DOMAIN-SUFFIX,google.com,PROXY',
+          'DOMAIN-SUFFIX,youtube.com,PROXY',
+          'DOMAIN-SUFFIX,github.com,PROXY',
+          'MATCH,PROXY'
+        ]
+      };
+      return jsyaml.dump(config, { indent: 2, noArrayIndent: false });
+    }
+
+    function convert() {
+      const input = document.getElementById('inputNodes').value;
+      const lines = input.split('\n');
+      const proxies = [];
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '';
+
+      let output = '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const proxy = parseProxyLine(trimmed);
+        if (proxy && !proxy.error) {
+          proxies.push(proxy);
+          output += `<div class="success">✅ ${proxy.name} (${proxy.type})</div>`;
+        } else {
+          output += `<div class="error">❌ 无法解析: ${trimmed}</div>`;
+        }
+      }
+
+      if (proxies.length === 0) {
+        resultDiv.innerHTML = '<div class="error">❌ 没有有效节点</div>';
+        return;
+      }
+
+      try {
+        const yamlContent = generateClashConfig(proxies);
+        const blob = new Blob([yamlContent], { type: 'text/yaml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+
+        output += `<hr><p>共 ${proxies.length} 个节点：</p>`;
+        output += `<a href="${url}" class="download-link" download="clash_config.yaml">📥 下载 clash_config.yaml</a>`;
+        output += `<div id="qrcode"><p>📱 扫码下载配置：</p></div>`;
+        resultDiv.innerHTML = output;
+
+        // 生成二维码
+        new QRCode(document.getElementById("qrcode").querySelector('p'), {
+          text: url,
+          width: 128,
+          height: 128
+        });
+
+        // 清理
+        document.querySelector('.download-link').onclick = () => {
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+      } catch (e) {
+        resultDiv.innerHTML = `<div class="error">❌ 生成失败: ${e.message}</div>`;
+      }
+    }
+
+    // 拖拽上传
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('highlight'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('highlight'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('highlight');
+      if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => document.getElementById('inputNodes').value = e.target.result;
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
