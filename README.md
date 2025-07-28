@@ -32,14 +32,6 @@ https://mmacheng.github.io/clash-converter/
 
 ---
 
-## 🖼️ 界面预览
-
-![界面截图](https://via.placeholder.com/800x450/121212/3498db?text=Clash+Converter+Screenshot)
-
-> 🔁 替换提示：请将 `https://via.placeholder.com/...` 替换为你网站的真实截图链接（可上传到 Issues 或图床）
-
----
-
 ## 🚀 如何使用？
 
 1. 打开 [在线工具](https://mmacheng.github.io/clash-converter/index.html)
